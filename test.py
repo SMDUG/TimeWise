@@ -7,7 +7,7 @@ import tkinter.messagebox as messagebox
 import win32gui
 import psutil
 
-#Creates a password box for vaildated access
+
 class PasswordWindow(tk.Tk):
     def __init__(self, on_password_entered):
         super().__init__()
@@ -35,7 +35,7 @@ class PasswordWindow(tk.Tk):
         else:
             messagebox.showerror('Error', 'Incorrect password. Please try again.')
 
-#Main code for time tracking
+
 class Application(tk.Tk):
     def __init__(self, master=None):
         super().__init__(master)
@@ -93,13 +93,14 @@ class Application(tk.Tk):
             self.time_label.config(text=time_str)
         self.after(1000, self.update_time)
 
-    #Saves the time info to the JSON file and closes the app
     def on_exit(self):
-       
+        #Save the time data to a JSON file and exit the application.
+
         # Write the time data to a JSON file
         with open('time_data.json', 'w') as f:
             json.dump(self.time_data, f, indent=4)
 
+        # Destroy the GUI and exit the
         self.destroy()
         sys.exit()
 
@@ -121,14 +122,14 @@ class Application(tk.Tk):
             return 'Unknown platform'
 
 if __name__ == '__main__':
-    # Creates the Application instance
+    # Define a function that will create the Application instance
     def create_app():
         root = tk.Tk()
         app = Application(master=root)
         app.title('Time Tracker')  # Set the title of the window
         app.mainloop()  # Start the GUI event loop
     
-    # Create password window 
+    # Create password window to prompt for password
     pw = PasswordWindow(on_password_entered=create_app)
 
     # Start the Tkinter event loop
