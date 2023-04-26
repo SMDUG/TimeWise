@@ -7,11 +7,11 @@ import tkinter.messagebox as messagebox
 import win32gui
 import psutil
 
-#Creates a password box for vaildated access
+# Creates a password box for validated access
 class PasswordWindow(tk.Tk):
     def __init__(self, on_password_entered):
         super().__init__()
-        self.title('Password')
+        self.title('TimeWise')
         self.geometry('400x200')
         self.resizable(False, False)
         self.password_correct = False
@@ -35,40 +35,30 @@ class PasswordWindow(tk.Tk):
         else:
             messagebox.showerror('Error', 'Incorrect password. Please try again.')
 
-#Main code for time tracking
-class Application(tk.Tk):
+# Creates a new frame for the time tracker
+class TimeTrackerWindow(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
-        self.master = master
-        self.time_data = []
-        self.active_windows = []
-        self.start_time = None
-        self.create_widgets()
         self.pack()
-        self.protocol("WM_DELETE_WINDOW", self.on_exit)
-
+        self.create_widgets()
+        self.time_data = []
+        self.start_time = None
+        self.active_windows = []
+        self.time_spent = {}
+    
+    #Time tracking lables & buttons settings
     def create_widgets(self):
-        self.title('Time Tracker')
-        self.geometry('600x400')
-        self.resizable(False, False)
-        self.withdraw()
+        self.timer_label = tk.Label(self, text='00:00:00', font=('Helvetica', 32))
+        self.timer_label.pack(pady=20)
 
-        #frame = tk.Frame(self)
-        #frame.pack(fill=tk.BOTH, expand=True)
+        self.start_button = tk.Button(self, text='Start', font=('Helvetica', 14), command=self.start_timer)
+        self.start_button.pack(side='left', padx=10)
 
-        self.time_label = tk.Label(self, text='00:00:00', font=('Helvetica', 18))
-        self.time_label.pack(pady=10)
+        self.stop_button = tk.Button(self, text='Stop', font=('Helvetica', 14), command=self.stop_timer, state=tk.DISABLED)
+        self.stop_button.pack(side='right', padx=10)
 
-        self.start_button = tk.Button(self, text='Start', font=('Helvetica', 14), command=self.on_start)
-        self.start_button.pack(pady=5)
-
-        self.stop_button = tk.Button(self, text='Stop', font=('Helvetica', 14), command=self.on_stop, state=tk.DISABLED)
-        self.stop_button.pack(pady=5)
-
-        self.quit_button = tk.Button(self, text='Quit', font=('Helvetica', 14), command=self.on_exit)
-        self.quit_button.pack(pady=10)
-
-    def on_start(self):
+    #Starts the timer and starts polling for active windows
+    def start_timer(self):
         self.start_time = time.time()
         self.active_windows = [self.get_active_window_title()]
         self.after(1000, self.update_time)
@@ -76,60 +66,76 @@ class Application(tk.Tk):
         self.start_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
 
-    def on_stop(self):
-        if self.start_time is not None:
-            elapsed_time = time.time() - self.start_time
-            time_str = time.strftime('%H:%M:%S', time.gmtime(elapsed_time))
-            self.time_data.append({'windows': self.active_windows, 'time': time_str})
-            self.start_time = None
-            self.active_windows = []
-            self.start_button.config(state=tk.NORMAL)
-            self.stop_button.config(state=tk.DISABLED)
+    # Polls for active windows and updates active_windows list
+    def poll_active_windows(self):
+        active_window_title = self.get_active_window_title()
+        if active_window_title != self.active_windows[-1]:
+            self.active_windows.append(active_window_title)
+        self.after(100, self.poll_active_windows)
+
+    # Gets title of the current active window
+    def get_active_window_title(self):
+        active_window = None
+        try:
+            active_window = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+        except:
+            pass
+        return active_window
+    
 
     def update_time(self):
         if self.start_time is not None:
             elapsed_time = time.time() - self.start_time
             time_str = time.strftime('%H:%M:%S', time.gmtime(elapsed_time))
-            self.time_label.config(text=time_str)
+            self.timer_label.config(text=time_str)
+
+            # Get active window title
+            active_window_title = self.get_active_window_title()
+
+            # Add active window to active_windows list if not already present
+            if active_window_title not in self.active_windows and active_window_title != 'TimeWise':
+                self.active_windows.append(active_window_title)
+
+            # Update time spent on current active window
+            if active_window_title in self.time_spent:
+                self.time_spent[active_window_title] += 1
+            else:
+                self.time_spent[active_window_title] = 1
+
         self.after(1000, self.update_time)
 
-    #Saves the time info to the JSON file and closes the app
-    def on_exit(self):
-       
-        # Write the time data to a JSON file
-        with open('time_data.json', 'w') as f:
-            json.dump(self.time_data, f, indent=4)
+    def on_stop(self):
+        if self.start_time is not None:
+            elapsed_time = time.time() - self.start_time
+            time_str = time.strftime('%H:%M:%S', time.gmtime(elapsed_time))
+            self.time_data.append({'date': time.strftime('%Y-%m-%d %H:%M:%S'), 'windows': self.active_windows, 'time': time_str})
 
-        self.destroy()
-        sys.exit()
+            # Write time data to file
+            with open('time_data.json', 'a') as f:
+                json.dump(self.time_data, f)
 
-    def get_active_window_title(self):
-        if sys.platform == 'win32':
-            window = win32gui.GetForegroundWindow()
-            title = win32gui.GetWindowText(window)
-            if title:
-                return title
-            elif sys.platform == 'darwin':
-                script = 'tell application "System Events" to get name of first application process whose frontmost is true'
-                title = subprocess.check_output(['/usr/bin/osascript', '-e', script])
-                title = title.decode('utf-8').strip()
-                if title:
-                    return title
-                else:
-                    return 'Unknown window'
-        else:
-            return 'Unknown platform'
+            self.start_time = None
+            self.active_windows = []
+            self.time_spent = {}
+            self.start_button.config(state=tk.NORMAL)
+            self.stop_button.config(state=tk.DISABLED)
+    
+    def stop_timer(self):
+        self.on_stop()        
+
+
+# The main function for Timewise
+def main():
+    def on_password_entered():
+        root = tk.Tk()
+        root.title('Time Tracker')
+        root.geometry('400x200')
+        TimeTrackerWindow(master=root)
+        root.mainloop()
+
+    pw = PasswordWindow(on_password_entered=on_password_entered)
+    pw.mainloop()
+
 
 if __name__ == '__main__':
-    # Creates the Application instance
-    def create_app():
-        root = tk.Tk()
-        app = Application(master=root)
-        app.title('Time Tracker')  # Set the title of the window
-        app.mainloop()  # Start the GUI event loop
-    
-    # Create password window 
-    pw = PasswordWindow(on_password_entered=create_app)
-
-    # Start the Tkinter event loop
-    pw.mainloop()
+    main()
