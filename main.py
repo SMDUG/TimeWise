@@ -4,6 +4,7 @@ import sys
 import time
 import tkinter as tk
 import tkinter.messagebox as messagebox
+import datetime
 import win32gui
 import psutil
 
@@ -41,7 +42,7 @@ class TimeTrackerWindow(tk.Frame):
         super().__init__(master)
         self.pack()
         self.create_widgets()
-        self.time_data = []
+        self.time_data = {'activities': []}
         self.start_time = None
         self.active_windows = []
         self.time_spent = {}
@@ -69,9 +70,11 @@ class TimeTrackerWindow(tk.Frame):
     # Polls for active windows and updates active_windows list
     def poll_active_windows(self):
         active_window_title = self.get_active_window_title()
-        if active_window_title != self.active_windows[-1]:
+        #if active_window_title != self.active_windows[-1]:
+        if self.active_windows and active_window_title != self.active_windows[-1]:
+
             self.active_windows.append(active_window_title)
-        self.after(100, self.poll_active_windows)
+        self.after(1000, self.poll_active_windows)
 
     # Gets title of the current active window
     def get_active_window_title(self):
@@ -103,32 +106,73 @@ class TimeTrackerWindow(tk.Frame):
                 self.time_spent[active_window_title] = 1
 
         self.after(1000, self.update_time)
-
+    print('on_stop called')
     def on_stop(self):
-        if self.start_time is not None:
-            elapsed_time = time.time() - self.start_time
-            time_str = time.strftime('%H:%M:%S', time.gmtime(elapsed_time))
-            self.time_data.append({'date': time.strftime('%Y-%m-%d %H:%M:%S'), 'windows': self.active_windows, 'time': time_str})
+        try:
+            if self.start_time is not None:
+                elapsed_time = time.time() - self.start_time
+                time_str = time.strftime('%H:%M:%S', time.gmtime(elapsed_time))
 
-            # Write time data to file
-            with open('time_data.json', 'a') as f:
-                json.dump(self.time_data, f)
+                # Starts self.time_data as a dictionary with an empty list for the 'activities' key
+                if not isinstance(self.time_data, dict):
+                    self.time_data = {'activities': []}
 
-            self.start_time = None
-            self.active_windows = []
-            self.time_spent = {}
-            self.start_button.config(state=tk.NORMAL)
-            self.stop_button.config(state=tk.DISABLED)
-    
+                # Check if the 'activities' key exists in self.time_data
+                if 'activities' not in self.time_data:
+                    self.time_data['activities'] = []
+                   
+
+                # Create new dictionary for the current time entry
+                time_entry = {
+                    'start_time': datetime.datetime.fromtimestamp(self.start_time).strftime('%Y-%m-%d %H:%M:%S'),
+                    'end_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'days': 0,
+                    'hours': int(elapsed_time // 3600),
+                    'minutes': int((elapsed_time // 60) % 60),
+                    'seconds': int(elapsed_time % 60)
+                }
+
+                # Add the current time entry to the appropriate window in the time_data list
+                if self.active_windows:
+                    last_window = self.active_windows[-1]
+                    for activity in self.time_data['activities']:
+                        if activity['name'] == last_window:
+                            activity['time_entries'].append(time_entry)
+                            break
+                    else:
+                        self.time_data['activities'].append({'name': last_window, 'time_entries': [time_entry]})
+                else:
+                    # If no window was active, add the time entry to the "untracked" activity
+                    for activity in self.time_data['activities']:
+                        if activity['name'] == '':
+                            activity['time_entries'].append(time_entry)
+                            break
+            
+                # Write time data to file
+                with open('time_data.json', 'w') as f:
+                    json.dump(self.time_data, f, indent=4)
+            
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return    
+
     def stop_timer(self):
-        self.on_stop()        
+        self.on_stop()
+        if self.start_time is None:
+            return
+        elapsed_time = time.time() - self.start_time
+        self.time_spent[self.active_windows[-1]] += elapsed_time
+        self.active_windows.pop()
+        self.start_time = None
+        self.start_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)        
 
 
 # The main function for Timewise
 def main():
     def on_password_entered():
         root = tk.Tk()
-        root.title('Time Tracker')
+        root.title('TimeWise')
         root.geometry('400x200')
         TimeTrackerWindow(master=root)
         root.mainloop()
