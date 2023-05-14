@@ -1,5 +1,5 @@
 """
-Author:  Christian Ahialegbedzi
+Author:  CA
 Date written: 03/30/23
 Short Desc:   TimeWise provides an fast and simple solution for tracking your time.
 """
