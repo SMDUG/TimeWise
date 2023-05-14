@@ -1,3 +1,8 @@
+"""
+Author:  Christian Ahialegbedzi
+Date written: 03/30/23
+Short Desc:   TimeWise provides an fast and simple solution for tracking your time.
+"""
 import os
 import json
 import sys
@@ -17,16 +22,19 @@ class PasswordWindow(tk.Tk):
         self.resizable(False, False)
         self.password_correct = False
         self.on_password_entered = on_password_entered
-
+        
+        #Button settings
         self.password_label = tk.Label(self, text='Enter password:', font=('Helvetica', 14))
         self.password_label.pack(pady=10)
 
         self.password_entry = tk.Entry(self, show='*', font=('Helvetica', 14))
         self.password_entry.pack(pady=10)
+        self.password_entry.config(validate="key", validatecommand=(self.register(self.validate_password_entry), '%P'))
 
         self.submit_button = tk.Button(self, text='Submit', font=('Helvetica', 14), command=self.check_password)
         self.submit_button.pack(pady=10)
-
+    
+    #checks if entered password is correct
     def check_password(self):
         if self.password_entry.get() == 'password':
             self.password_correct = True
@@ -35,6 +43,14 @@ class PasswordWindow(tk.Tk):
                 self.on_password_entered()
         else:
             messagebox.showerror('Error', 'Incorrect password. Please try again.')
+
+    def validate_password_entry(self, password):
+        if all(c.isalnum() or c == '_' for c in password):
+            return True
+        else:
+            messagebox.showerror('Error', 'Invalid password. Password can only contain alphabetic characters, digits, and underscores.')
+            return False
+        
 
 # Creates a new frame for the time tracker
 class TimeTrackerWindow(tk.Frame):
@@ -57,6 +73,9 @@ class TimeTrackerWindow(tk.Frame):
 
         self.stop_button = tk.Button(self, text='Stop', font=('Helvetica', 14), command=self.stop_timer, state=tk.DISABLED)
         self.stop_button.pack(side='right', padx=10)
+
+        self.exit_button = tk.Button(self, text='Exit', font=('Helvetica', 14), command=self.on_exit,)
+        self.exit_button.pack(side='right', padx=10)
 
     #Starts the timer and starts polling for active windows
     def start_timer(self):
@@ -165,7 +184,11 @@ class TimeTrackerWindow(tk.Frame):
         self.active_windows.pop()
         self.start_time = None
         self.start_button.config(state=tk.NORMAL)
-        self.stop_button.config(state=tk.DISABLED)        
+        self.stop_button.config(state=tk.DISABLED) 
+
+    def on_exit(self):
+        self.stop_timer
+        self.master.destroy()       
 
 
 # The main function for Timewise
